@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Audio Noise Reducer using SVD</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f6f7ff;--card:#fff;--ink:#1e2140;--mut:#656a8f;--bd:#e3e5f7;--a:#4f6bff;--b:#8b5cf6;--bad:#f43f5e;--ok:#10b981}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12142a;--card:#1b1e3a;--ink:#eef0ff;--mut:#a3a8d1;--bd:#2c3058}}
+:root[data-theme="dark"]{--bg:#12142a;--card:#1b1e3a;--ink:#eef0ff;--mut:#a3a8d1;--bd:#2c3058}
+html{scroll-behavior:smooth;scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*:before,*:after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1100px;margin:auto;padding:0 20px}
+section{padding:56px 0}
+h2{font-size:1.8rem;margin:0 0 6px}.sub{color:var(--mut);margin:0 0 24px}
+.grad{background:linear-gradient(90deg,var(--a),var(--b));-webkit-background-clip:text;background-clip:text;color:transparent}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--bd)}
+header .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 20px;flex-wrap:wrap}
+.logo{display:flex;gap:10px;align-items:center}.logo b{display:block;line-height:1.2}.logo small{color:var(--mut)}
+.logo i{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,var(--a),var(--b));display:grid;place-items:center;color:#fff;font-style:normal}
+nav a{color:var(--mut);text-decoration:none;margin-left:16px;font-weight:600}nav a:hover{color:var(--a)}
+.btn{border:0;border-radius:12px;padding:12px 22px;font:600 1rem inherit;font-family:inherit;cursor:pointer;transition:.2s;text-decoration:none;display:inline-block}
+.pri{background:linear-gradient(90deg,var(--a),var(--b));color:#fff;box-shadow:0 6px 18px #4f6bff44}
+.sec{background:var(--card);color:var(--ink);border:1px solid var(--bd)}
+.btn:hover{transform:translateY(-2px)}.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.hero{position:relative;overflow:hidden;text-align:center;padding:90px 0 80px}
+.hero h1{font-size:clamp(2.2rem,6vw,3.8rem);margin:0 0 14px;line-height:1.1;position:relative}
+.hero p{max-width:620px;margin:0 auto 26px;color:var(--mut);position:relative}.hero .btns{position:relative;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+#bars{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:5px;opacity:.16;pointer-events:none}
+#bars span{width:6px;border-radius:4px;background:linear-gradient(var(--a),var(--b));animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{50%{transform:scaleY(.35)}}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:20px;box-shadow:0 4px 20px #4f6bff0f}
+.grid{display:grid;gap:16px}.g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}.g4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+#drop{border:2px dashed var(--a);border-radius:18px;padding:36px 20px;text-align:center;cursor:pointer;transition:.2s;background:var(--card)}
+#drop.over,#drop:hover{background:#4f6bff12;transform:scale(1.01)}#drop .ic{font-size:2.4rem}
+audio{width:100%;margin-top:8px}
+.info{display:flex;gap:18px;flex-wrap:wrap;margin:14px 0;color:var(--mut)}.info b{color:var(--ink)}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+input[type=range]{accent-color:var(--b);width:220px;max-width:100%}
+.pipe{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;justify-content:center}
+.step{flex:1 1 140px;max-width:170px;text-align:center;padding:16px 10px;transition:.3s}
+.step .n{font-size:1.6rem}.step small{color:var(--mut);display:block}
+.step.on{border-color:var(--b);box-shadow:0 0 0 3px #8b5cf655;transform:translateY(-4px)}
+.arr{align-self:center;color:var(--b);font-size:1.4rem}
+@media(max-width:700px){.arr{display:none}.step{max-width:none}}
+.math{font:italic 2rem Georgia,"Times New Roman",serif;text-align:center;margin:22px 0 8px}
+.note{background:linear-gradient(90deg,#4f6bff18,#8b5cf618);border-radius:14px;padding:14px 18px;text-align:center}
+canvas{width:100%;height:170px;display:block;border-radius:10px;background:color-mix(in srgb,var(--bg) 60%,var(--card))}
+.card h3{margin:0 0 4px;font-size:1.05rem}.card .d{color:var(--mut);font-size:.88rem;margin:0 0 10px}
+.stat{text-align:center}.stat .v{font-size:1.9rem;font-weight:800}.stat .l{color:var(--mut);font-size:.9rem}
+.legend span{display:inline-block;margin-right:14px;font-size:.85rem;color:var(--mut)}.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px}
+.q h3{color:var(--a)}.q p{margin:0}
+footer{text-align:center;padding:36px 20px;border-top:1px solid var(--bd);color:var(--mut)}footer b{color:var(--ink)}
+#status{color:var(--mut);margin-top:10px;min-height:1.5em}
+</style>
+</head>
+<body>
+
+<header><div class="wrap">
+  <div class="logo"><i>∿</i><div><b>Audio Noise Reducer</b><small>Noise Reduction using Singular Value Decomposition</small></div></div>
+  <nav><a href="#home">Home</a><a href="#process">Process</a><a href="#results">Results</a><a href="#about">About</a></nav>
+</div></header>
+
+<section id="home" class="hero"><div id="bars"></div><div class="wrap">
+  <h1>Clean Your Audio <span class="grad">with SVD</span></h1>
+  <p>A noisy audio clip becomes a Time × Frequency matrix (STFT). SVD splits it into strong signal parts and weak noise parts. We drop the weak ones and rebuild a cleaner sound.</p>
+  <div class="btns"><a class="btn pri" href="#upload" id="goUpload">⬆ Upload Audio</a><button class="btn sec" id="demoBtn">▶ Try Demo</button></div>
+</div></section>
+
+<section id="upload"><div class="wrap">
+  <h2>1. Upload Audio</h2><p class="sub">Supported formats: WAV, MP3 (first 5 seconds are processed in the browser)</p>
+  <div id="drop"><div class="ic">🎵</div><b>Drag &amp; drop an audio file here</b><br><span class="sub">or click to browse · WAV, MP3</span>
+    <input type="file" id="file" accept=".wav,.mp3,audio/wav,audio/mpeg" hidden></div>
+  <div class="card" style="margin-top:16px">
+    <div class="info"><span>📄 File: <b id="fname">none</b></span><span>⏱ Duration: <b id="fdur">–</b></span></div>
+    <audio id="player" controls></audio>
+    <div class="row" style="margin-top:14px"><button class="btn pri" id="reduce" disabled>✨ Reduce Noise</button><span id="status"></span></div>
+  </div>
+</div></section>
+
+<section id="process"><div class="wrap">
+  <h2>2. Processing Pipeline</h2><p class="sub">Each step transforms the signal. The highlighted card shows the step currently running.</p>
+  <div class="pipe" id="pipe"></div>
+  <div class="math grad" style="display:block">A = U Σ Vᵀ</div>
+  <div class="note">Large singular values represent important signal information, while smaller singular values are treated as noise.</div>
+</div></section>
+
+<section id="viz"><div class="wrap">
+  <h2>3. SVD Visualization</h2>
+  <div class="row" style="margin-bottom:16px"><label for="k"><b>Singular values kept (k):</b> <span id="kv">–</span></label><input type="range" id="k" min="1" max="1" value="1" disabled></div>
+  <div class="grid g2">
+    <div class="card"><h3>📊 Original Matrix A</h3><p class="d">STFT magnitude (time → , frequency ↑)</p><canvas id="cA"></canvas></div>
+    <div class="card"><h3>📈 Singular Values σ</h3><p class="d">Sorted largest to smallest</p><canvas id="cS"></canvas></div>
+    <div class="card"><h3>✂ Filtered Singular Values</h3><p class="d">Small values set to zero</p><canvas id="cF"></canvas><div class="legend" style="margin-top:8px"><span><i style="background:#4f6bff"></i>kept</span><span><i style="background:#f43f5e"></i>removed</span></div></div>
+    <div class="card"><h3>🔁 Reconstructed Matrix Aₖ</h3><p class="d">Spectrogram after rank reduction</p><canvas id="cR"></canvas></div>
+    <div class="card"><h3>Before: Noisy Waveform</h3><p class="d">Original signal</p><canvas id="wB"></canvas></div>
+    <div class="card"><h3>After: Clean Waveform</h3><p class="d">Reconstructed signal</p><canvas id="wA"></canvas></div>
+  </div>
+</div></section>
+
+<section id="results"><div class="wrap">
+  <h2>4. Results</h2><p class="sub">Listen and compare.</p>
+  <div class="grid g2">
+    <div class="card"><h3>🔊 Original Noisy Audio</h3><audio id="aO" controls></audio></div>
+    <div class="card"><h3>✅ Cleaned Audio</h3><audio id="aC" controls></audio></div>
+  </div>
+  <div class="grid g4" style="margin-top:16px">
+    <div class="card stat"><div class="v grad" id="s1">–</div><div class="l">Noise Reduction (energy removed)</div></div>
+    <div class="card stat"><div class="v grad" id="s2">–</div><div class="l">Signal Quality (energy kept by top-k σ)</div></div>
+    <div class="card stat"><div class="v grad" id="s3">–</div><div class="l">Singular Values Removed</div></div>
+    <div class="card stat"><div class="v grad" id="s4">–</div><div class="l">Processing Time</div></div>
+  </div>
+</div></section>
+
+<section id="about"><div class="wrap">
+  <h2>5. The Math, Simply</h2><p class="sub">Five beginner questions.</p>
+  <div class="math grad" style="display:block">A = U Σ Vᵀ</div>
+  <div class="grid g2">
+    <div class="card q"><h3>What is STFT?</h3><p>The Short-Time Fourier Transform cuts audio into tiny overlapping windows and finds which frequencies are present in each one. The result is a Time × Frequency matrix A.</p></div>
+    <div class="card q"><h3>What is SVD?</h3><p>Singular Value Decomposition writes any matrix as A = UΣVᵀ: a sum of simple layers, each with a strength (σ), a time pattern (column of U) and a frequency pattern (column of V).</p></div>
+    <div class="card q"><h3>What are singular values?</h3><p>They are the diagonal numbers of Σ, sorted σ₁ ≥ σ₂ ≥ … ≥ 0. Each tells how much of the matrix's energy its layer carries.</p></div>
+    <div class="card q"><h3>Why remove small singular values?</h3><p>Speech or music has structure, so a few layers carry most energy. Random noise spreads thinly over many layers with small σ. Dropping those removes most noise.</p></div>
+    <div class="card q"><h3>How is the clean signal rebuilt?</h3><p>Keep only the top k layers: Aₖ = σ₁u₁v₁ᵀ + … + σₖuₖvₖᵀ. Then combine Aₖ with the original phase and apply the inverse STFT (overlap-add) to get audio back.</p></div>
+  </div>
+</div></section>
+
+<footer><b>B.Tech Mathematics Mini Project</b><br>Audio Noise Reducer using SVD<br>Student Project</footer>
+
+<script>
+/* ---------- Backend hook ----------
+   Set BACKEND_URL to your Colab/Flask/FastAPI tunnel (e.g. an ngrok URL) later.
+   Expected: POST {BACKEND_URL}/denoise with multipart "file" and "k".
+   It should return JSON: {sv:[...], clean_wav_base64:"...", time_ms:123}.
+   Until then everything runs locally in the browser (real STFT + SVD). */
+const BACKEND_URL = null;
+
+const SR = 8000, N = 256, HOP = 128, MAXSEC = 5;
+const $ = id => document.getElementById(id);
+const STEPS = [["🎙","Input Noisy Audio","waveform x(t)"],["🧮","STFT Matrix","Time × Frequency"],["🧩","SVD Decomposition","A = UΣVᵀ"],["✂","Remove Small σ","keep top k"],["🔁","Reconstruct Signal","Aₖ + phase → ISTFT"],["✨","Clean Audio","x̂(t)"]];
+$("pipe").innerHTML = STEPS.map((s,i)=>`<div class="card step" id="st${i}"><div class="n">${s[0]}</div><b>${s[1]}</b><small>${s[2]}</small></div>`+(i<5?'<div class="arr">→</div>':'')).join("");
+$("bars").innerHTML = Array.from({length:60},(_,i)=>`<span style="height:${20+Math.abs(Math.sin(i*.4)*Math.cos(i*.13))*180}px;animation-delay:${i*.05}s"></span>`).join("");
+
+/* ---------- FFT / STFT ---------- */
+function fft(re, im, inv){
+  const n = re.length;
+  for(let i=1,j=0;i<n;i++){let b=n>>1;for(;j&b;b>>=1)j^=b;j^=b;if(i<j){[re[i],re[j]]=[re[j],re[i]];[im[i],im[j]]=[im[j],im[i]];}}
+  for(let len=2;len<=n;len<<=1){
+    const ang=2*Math.PI/len*(inv?1:-1), wr=Math.cos(ang), wi=Math.sin(ang);
+    for(let i=0;i<n;i+=len){let cr=1,ci=0;
+      for(let j=0;j<len/2;j++){
+        const a=i+j,b=a+len/2,tr=re[b]*cr-im[b]*ci,ti=re[b]*ci+im[b]*cr;
+        re[b]=re[a]-tr;im[b]=im[a]-ti;re[a]+=tr;im[a]+=ti;
+        const t=cr*wr-ci*wi;ci=cr*wi+ci*wr;cr=t;}}}
+}
+const WIN = Float64Array.from({length:N},(_,i)=>0.5-0.5*Math.cos(2*Math.PI*i/N));
+function stft(x){
+  const T = Math.floor((x.length-N)/HOP)+1, F = N/2+1, mag=[], ph=[];
+  for(let t=0;t<T;t++){
+    const re=new Float64Array(N), im=new Float64Array(N);
+    for(let i=0;i<N;i++) re[i]=x[t*HOP+i]*WIN[i];
+    fft(re,im,false);
+    const m=new Float64Array(F), p=new Float64Array(F);
+    for(let f=0;f<F;f++){m[f]=Math.hypot(re[f],im[f]);p[f]=Math.atan2(im[f],re[f]);}
+    mag.push(m);ph.push(p);
+  }
+  return {mag,ph,T,F};
+}
+function istft(mag, ph, len){
+  const out=new Float64Array(len), wsum=new Float64Array(len), F=N/2+1;
+  for(let t=0;t<mag.length;t++){
+    const re=new Float64Array(N), im=new Float64Array(N);
+    for(let f=0;f<F;f++){
+      const r=mag[t][f]*Math.cos(ph[t][f]), i=mag[t][f]*Math.sin(ph[t][f]);
+      re[f]=r;im[f]=i; if(f>0&&f<N/2){re[N-f]=r;im[N-f]=-i;}
+    }
+    fft(re,im,true);
+    for(let i=0;i<N;i++){out[t*HOP+i]+=re[i]/N*WIN[i];wsum[t*HOP+i]+=WIN[i]*WIN[i];}
+  }
+  for(let i=0;i<len;i++) if(wsum[i]>1e-6) out[i]/=wsum[i];
+  return out;
+}
+
+/* ---------- SVD (one-sided Jacobi): A = U Σ Vᵀ ---------- */
+function svd(mag){
+  const m=mag.length, n=mag[0].length;
+  const a=Array.from({length:n},(_,j)=>Float64Array.from(mag,r=>r[j]));   // columns of A
+  const v=Array.from({length:n},(_,j)=>{const c=new Float64Array(n);c[j]=1;return c;});
+  for(let sweep=0;sweep<10;sweep++){
+    let rot=0;
+    for(let p=0;p<n-1;p++)for(let q=p+1;q<n;q++){
+      let al=0,be=0,ga=0; const ap=a[p],aq=a[q];
+      for(let i=0;i<m;i++){al+=ap[i]*ap[i];be+=aq[i]*aq[i];ga+=ap[i]*aq[i];}
+      if(Math.abs(ga)<=1e-10*Math.sqrt(al*be)||ga===0) continue;
+      rot++;
+      const z=(be-al)/(2*ga), t=Math.sign(z||1)/(Math.abs(z)+Math.sqrt(1+z*z)), c=1/Math.sqrt(1+t*t), s=c*t;
+      for(let i=0;i<m;i++){const x=ap[i],y=aq[i];ap[i]=c*x-s*y;aq[i]=s*x+c*y;}
+      const vp=v[p],vq=v[q];
+      for(let i=0;i<n;i++){const x=vp[i],y=vq[i];vp[i]=c*x-s*y;vq[i]=s*x+c*y;}
+    }
+    if(!rot) break;
+  }
+  const sig=a.map(c=>Math.sqrt(c.reduce((s,x)=>s+x*x,0)));
+  const idx=sig.map((_,i)=>i).sort((i,j)=>sig[j]-sig[i]);
+  return {S:idx.map(i=>sig[i]), US:idx.map(i=>a[i]), V:idx.map(i=>v[i]), m, n};   // US[j] = σj·uj
+}
+function rebuild(d,k){           // Aₖ = Σ_{j<k} σj uj vjᵀ
+  const R=Array.from({length:d.m},()=>new Float64Array(d.n));
+  for(let j=0;j<k;j++){const u=d.US[j],v=d.V[j];
+    for(let i=0;i<d.m;i++){const ui=u[i],row=R[i];for(let c=0;c<d.n;c++)row[c]+=ui*v[c];}}
+  return R;
+}
+
+/* ---------- Audio helpers ---------- */
+let ctx; const AC=()=>ctx||(ctx=new (window.AudioContext||window.webkitAudioContext)());
+async function decode(buf){
+  const ab=await AC().decodeAudioData(buf.slice(0)); const ch=ab.getChannelData(0);
+  const r=Math.max(1,Math.round(ab.sampleRate/SR)), len=Math.min(Math.floor(ch.length/r),SR*MAXSEC), x=new Float64Array(len);
+  for(let i=0;i<len;i++){let s=0;for(let j=0;j<r;j++)s+=ch[i*r+j];x[i]=s/r;}   // simple downsample
+  return {x, dur:ab.duration};
+}
+function toWav(x){
+  const b=new ArrayBuffer(44+x.length*2),d=new DataView(b),w=(o,s)=>[...s].forEach((c,i)=>d.setUint8(o+i,c.charCodeAt(0)));
+  let pk=1e-9;for(const v of x)pk=Math.max(pk,Math.abs(v));const g=Math.min(1,0.95/pk);
+  w(0,"RIFF");d.setUint32(4,36+x.length*2,true);w(8,"WAVEfmt ");d.setUint32(16,16,true);d.setUint16(20,1,true);d.setUint16(22,1,true);
+  d.setUint32(24,SR,true);d.setUint32(28,SR*2,true);d.setUint16(32,2,true);d.setUint16(34,16,true);w(36,"data");d.setUint32(40,x.length*2,true);
+  x.forEach((v,i)=>d.setInt16(44+i*2,Math.max(-1,Math.min(1,v*g))*32767,true));
+  return URL.createObjectURL(new Blob([b],{type:"audio/wav"}));
+}
+function demoSignal(){   // tone melody + harmonics + random noise
+  const len=SR*4, x=new Float64Array(len), notes=[262,330,392,523];
+  for(let i=0;i<len;i++){const t=i/SR,f=notes[Math.floor(t)%4];
+    x[i]=0.5*Math.sin(2*Math.PI*f*t)+0.2*Math.sin(4*Math.PI*f*t)+0.12*Math.sin(6*Math.PI*f*t)+0.45*(Math.random()*2-1);}
+  return x;
+}
+
+/* ---------- Drawing ---------- */
+function cv(id){const c=$(id),r=devicePixelRatio||1;c.width=c.clientWidth*r;c.height=c.clientHeight*r;const g=c.getContext("2d");g.scale(r,r);g.clearRect(0,0,c.clientWidth,c.clientHeight);return [g,c.clientWidth,c.clientHeight];}
+function drawWave(id,x,col){
+  const [g,w,h]=cv(id);let pk=1e-9;for(const v of x)pk=Math.max(pk,Math.abs(v));
+  g.strokeStyle=col;g.lineWidth=1;g.beginPath();
+  for(let px=0;px<w;px++){const a=Math.floor(px/w*x.length),b=Math.floor((px+1)/w*x.length);let lo=0,hi=0;
+    for(let i=a;i<b;i++){lo=Math.min(lo,x[i]);hi=Math.max(hi,x[i]);}
+    g.moveTo(px,h/2-hi/pk*h/2*.95);g.lineTo(px,h/2-lo/pk*h/2*.95);}
+  g.stroke();
+}
+function drawSpec(id,M){
+  const [g,w,h]=cv(id),T=M.length,F=M[0].length;let mx=1e-9;for(const r of M)for(const v of r)mx=Math.max(mx,v);
+  const cw=w/T,ch=h/F;
+  for(let t=0;t<T;t++)for(let f=0;f<F;f++){const v=Math.pow(M[t][f]/mx,0.4);
+    g.fillStyle=`rgb(${Math.round(30+v*140)},${Math.round(40+v*60)},${Math.round(120+v*135)})`;
+    g.fillRect(t*cw,h-(f+1)*ch,cw+.6,ch+.6);}
+}
+function drawBars(id,S,k){
+  const [g,w,h]=cv(id),mx=S[0]||1,bw=w/S.length;
+  S.forEach((s,i)=>{const bh=(s/mx)*(h-8);g.fillStyle=(k===null||i<k)?"#4f6bff":"#f43f5e";if(k!==null&&i>=k)g.globalAlpha=.35;g.fillRect(i*bw,h-bh,Math.max(1,bw-1),bh);g.globalAlpha=1;});
+}
+function drawBarsFiltered(id,S,k){
+  const [g,w,h]=cv(id),mx=S[0]||1,bw=w/S.length;
+  S.forEach((s,i)=>{if(i<k){const bh=(s/mx)*(h-8);g.fillStyle="#4f6bff";g.fillRect(i*bw,h-bh,Math.max(1,bw-1),bh);}else{g.fillStyle="#f43f5e";g.fillRect(i*bw,h-3,Math.max(1,bw-1),3);}});
+}
+
+/* ---------- App state & flow ---------- */
+let X=null, D=null, SP=null, ORIG_URL=null, t0=0;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function loadSamples(x,name,dur,url){
+  X=x; D=null; ORIG_URL=url||toWav(x);
+  $("fname").textContent=name; $("fdur").textContent=dur.toFixed(2)+" s";
+  $("player").src=ORIG_URL; $("aO").src=ORIG_URL; $("reduce").disabled=false;
+  $("status").textContent="Ready. Click “Reduce Noise”."; drawWave("wB",x,"#8b5cf6");
+}
+async function handleFile(f){
+  if(!f) return;
+  if(!/\.(wav|mp3)$/i.test(f.name)){$("status").textContent="Please choose a WAV or MP3 file.";return;}
+  try{const buf=await f.arrayBuffer();const {x,dur}=await decode(buf);await loadSamples(x,f.name,dur,URL.createObjectURL(f));}
+  catch(e){$("status").textContent="Could not read that audio file.";}
+}
+async function run(){
+  $("reduce").disabled=true; $("status").textContent="Processing…";
+  const mark=i=>{document.querySelectorAll(".step").forEach((s,j)=>s.classList.toggle("on",j===i));};
+  mark(0);await sleep(350);
+  const t0=performance.now();
+  mark(1);await sleep(50);SP=stft(X);
+  mark(2);await sleep(50);D=svd(SP.mag);
+  const total=D.S.reduce((s,v)=>s+v*v,0);let acc=0,k=D.S.length;
+  for(let i=0;i<D.S.length;i++){acc+=D.S[i]**2;if(acc/total>=0.95){k=i+1;break;}}   // default: keep 95% energy
+  D.time=performance.now()-t0; D.total=total;
+  $("k").max=D.S.length;$("k").value=k;$("k").disabled=false;
+  drawSpec("cA",SP.mag);
+  mark(3);await sleep(400);mark(4);await sleep(300);
+  apply(k);
+  mark(5);await sleep(400);mark(-1);
+  $("status").textContent="Done ✓ – drag the slider in section 3 to change k.";$("reduce").disabled=false;
+  $("results").scrollIntoView();
+}
+function apply(k){
+  const t1=performance.now();
+  const R=rebuild(D,k), y=istft(R,SP.ph,X.length), url=toWav(y);
+  const kept=D.S.slice(0,k).reduce((s,v)=>s+v*v,0)/D.total;
+  $("kv").textContent=k+" of "+D.S.length;
+  drawBars("cS",D.S,null);drawBarsFiltered("cF",D.S,k);drawSpec("cR",R);drawWave("wA",y,"#4f6bff");
+  $("aC").src=url;
+  $("s1").textContent=((1-kept)*100).toFixed(1)+"%";$("s2").textContent=(kept*100).toFixed(1)+"%";
+  $("s3").textContent=(D.S.length-k)+" / "+D.S.length;$("s4").textContent=Math.round(D.time+performance.now()-t1)+" ms";
+}
+/* Optional: send the file to a Python backend instead of the in-browser maths. */
+async function runOnBackend(file,k){
+  const fd=new FormData();fd.append("file",file);fd.append("k",k);
+  const r=await fetch(BACKEND_URL+"/denoise",{method:"POST",body:fd});return r.json();
+}
+
+/* ---------- Events ---------- */
+const drop=$("drop");
+drop.onclick=()=>$("file").click();
+$("file").onchange=e=>handleFile(e.target.files[0]);
+["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
+drop.addEventListener("drop",e=>handleFile(e.dataTransfer.files[0]));
+$("demoBtn").onclick=async()=>{await loadSamples(demoSignal(),"demo-noisy-tones.wav",4);$("upload").scrollIntoView();run();};
+$("reduce").onclick=run;
+$("k").oninput=e=>{if(D)apply(+e.target.value);};
+addEventListener("resize",()=>{if(D){drawSpec("cA",SP.mag);apply(+$("k").value);drawWave("wB",X,"#8b5cf6");}});
+</script>
+</body>
+</html>
